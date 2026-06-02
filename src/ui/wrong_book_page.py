@@ -8,7 +8,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 from src.core.db import get_all_wrong_questions, delete_wrong_question
-from src.core.config import get_api_key
+from src.core.config import get_api_key, load_config
 
 COLOR_BG      = '#FFFFFF'
 COLOR_TEXT    = '#111111'
@@ -222,8 +222,10 @@ class WrongBookPage(tk.Frame):
         if not user_answer:
             messagebox.showwarning('未作答', '请先输入答案')
             return
-        if not get_api_key():
-            messagebox.showwarning('未设置 API Key', '需要 AI 批改，请先在设置中填写 API Key')
+        # FIX: Ollama 不需要 API Key
+        cfg = load_config()
+        if cfg.get('api_provider', 'deepseek') != 'ollama' and not get_api_key():
+            messagebox.showwarning('未设置 API Key', '需要 AI 批改，请先在设置中填写 DeepSeek API Key')
             return
         self._show_grading(q, user_answer)
 

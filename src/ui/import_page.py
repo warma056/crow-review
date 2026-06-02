@@ -1,4 +1,4 @@
-# 模块用途：资料导入页面，支持上传 Word/PDF 或直接粘贴文字
+# 模块用途：资料导入页面，支持上传 Word/PDF/PPT 或直接粘贴文字
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
@@ -65,7 +65,7 @@ class ImportPage(tk.Frame):
         tk.Label(title_bar, text='导入资料', font=FONT_TITLE,
                  bg=COLOR_BG, fg=COLOR_TEXT).pack(side='left')
         tk.Label(title_bar,
-                 text='支持 Word (.docx)、PDF，或直接粘贴文字',
+                 text='支持 Word (.docx)、PDF、PPT (.pptx)，或直接粘贴文字',
                  font=FONT_SMALL, bg=COLOR_BG, fg=COLOR_SUBTLE
                  ).pack(side='left', padx=16, pady=4)
 
@@ -97,7 +97,7 @@ class ImportPage(tk.Frame):
         btn_row = tk.Frame(file_frame, bg=COLOR_BG)
         btn_row.pack(fill='x', pady=(8, 0))
 
-        tk.Button(btn_row, text='选择 Word / PDF 文件',
+        tk.Button(btn_row, text='选择 Word / PDF / PPT 文件',
                   font=FONT_BODY,
                   bg=COLOR_BTN_BG, fg=COLOR_BTN_FG,
                   relief='flat', cursor='hand2',
@@ -116,7 +116,7 @@ class ImportPage(tk.Frame):
         tk.Label(sep, text='── 或 ──', font=FONT_SMALL,
                  bg=COLOR_BG, fg=COLOR_SUBTLE).pack()
 
-        # ── 粘贴文字（最后 pack，fill+expand 占满剩余空间）──
+        # ── 粘贴文字 ──
         paste_frame = tk.Frame(self, bg=COLOR_BG)
         paste_frame.pack(fill='both', expand=True, padx=32, pady=(4, 12))
 
@@ -140,9 +140,10 @@ class ImportPage(tk.Frame):
     def _on_upload(self):
         path = filedialog.askopenfilename(
             title='选择资料文件',
-            filetypes=[('支持的文件', '*.docx *.pdf'),
+            filetypes=[('支持的文件', '*.docx *.pdf *.pptx'),
                        ('Word 文档', '*.docx'),
-                       ('PDF 文件', '*.pdf')]
+                       ('PDF 文件', '*.pdf'),
+                       ('PPT 文件', '*.pptx')]
         )
         if not path:
             return

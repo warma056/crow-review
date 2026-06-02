@@ -1,4 +1,4 @@
-# 模块用途：封装 DeepSeek API
+# 模块用途：封装 DeepSeek API / Ollama API
 # 功能：1.全文分析（章节识别+问答标注+关键词提取）  2.智能判题
 
 import json
@@ -7,33 +7,65 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
-from src.core.config import get_api_key
+from src.core.config import get_api_key, load_config
 
-API_URL = 'https://api.deepseek.com/v1/chat/completions'
-MODEL   = 'deepseek-chat'
-TIMEOUT = 60
+# FIX: Ollama 本地模型 CPU 推理很慢，需要更长超时
+# DeepSeek 云端用 60s，Ollama 本地用 300s
+TIMEOUT_DEEPSEEK = 60
+TIMEOUT_OLLAMA   = 600
 
 
-def _chat(messages: list, api_key: str) -> str:
-    """底层调用 DeepSeek API，返回模型回复文本"""
+def _get_api_params() -> tuple:
+    """
+    根据 config 返回 (api_url, model, api_key)。
+    支持 DeepSeek 和 Ollama 两种 provider。
+    """
+    config = load_config()
+    provider = config.get('api_provider', 'deepseek')
+
+    if provider == 'ollama':
+        base_url = config.get('ollama_base_url', 'http://localhost:11434')
+        model    = config.get('ollama_model', 'qwen2.5:7b')
+        api_url  = f"{base_url.rstrip('/')}/v1/chat/completions"
+        api_key  = 'ollama'  # Ollama 不校验 key，传任意非空字符串即可
+    else:
+        api_url = 'https://api.deepseek.com/v1/chat/completions'
+        model   = 'deepseek-chat'
+        api_key = config.get('api_key', '') or get_api_key()
+
+    return api_url, model, api_key
+
+
+def _chat(messages: list, api_key: str = None) -> str:
+    """底层调用 API，返回模型回复文本。api_key 参数保留用于测试连接时直接传入。"""
+    api_url, model, _key = _get_api_params()
+    # 若外部显式传入 api_key（如测试连接），优先使用
+    if api_key:
+        _key = api_key
+
+    # FIX: 根据 provider 选择超时时间，Ollama 本地模型需要更长时间
+    config = load_config()
+    # (连接超时, 读取超时)：连接5秒判断服务是否在线，读取按模型速度等
+    timeout = (5, TIMEOUT_OLLAMA) if config.get('api_provider') == 'ollama' else (10, TIMEOUT_DEEPSEEK)
+
     headers = {
         'Content-Type': 'application/json',
-        'Authorization': f'Bearer {api_key}'
+        'Authorization': f'Bearer {_key}'
     }
     payload = {
-        'model': MODEL,
+        'model': model,
         'messages': messages,
         'temperature': 0.1,
         'max_tokens': 4096
     }
     try:
-        resp = requests.post(API_URL, headers=headers, json=payload, timeout=TIMEOUT)
+        resp = requests.post(api_url, headers=headers, json=payload, timeout=timeout)
         resp.raise_for_status()
         return resp.json()['choices'][0]['message']['content']
     except requests.exceptions.Timeout:
         raise ConnectionError('请求超时，请检查网络后重试')
     except requests.exceptions.ConnectionError:
-        raise ConnectionError('无法连接到 DeepSeek 服务，请检查网络')
+        raise ConnectionError('无法连接到服务，请检查网络或 Ollama 是否已启动')
     except requests.exceptions.HTTPError as e:
         code = e.response.status_code
         if code == 401:
@@ -58,49 +90,43 @@ def analyze_material(full_text: str, api_key: str = None,
     对全文进行一次性分析，返回小节列表。
     每个小节结构：
     {
-        'title': str,         # 章节标题
-        'blocks': [           # 段落块列表
-            {
-                'type': 'question' | 'answer' | 'text',
-                'content': str
-            }, ...
-        ],
-        'keywords': [str, ...]  # 仅从 answer 块中提取的关键词
+        'title': str,
+        'blocks': [{'type': 'question'|'answer'|'text', 'content': str}, ...],
+        'keywords': [str, ...]
     }
-
-    progress_callback(current, total, message): 进度回调，可选
     """
     if api_key is None:
         api_key = get_api_key()
     if not api_key:
-        raise ValueError('尚未设置 API Key，请先前往设置页填写')
+        config = load_config()
+        if config.get('api_provider') != 'ollama':
+            raise ValueError('尚未设置 API Key，请先前往设置页填写')
 
-    # 分段处理：将全文按 1500 字一块切分，逐块分析后合并
-    chunks = _split_text(full_text, chunk_size=4000)
+    # FIX: Ollama 本地模型推理慢，缩小每段大小避免单次请求过久卡住
+    config_now = load_config()
+    chunk_size = 1500 if config_now.get('api_provider') == 'ollama' else 4000
+    chunks = _split_text(full_text, chunk_size=chunk_size)
     total  = len(chunks)
     all_sections = []
 
     for i, chunk in enumerate(chunks):
         if progress_callback:
             progress_callback(i + 1, total, f'正在分析第 {i+1}/{total} 段...')
-
         sections = _analyze_chunk(chunk, api_key)
         all_sections.extend(sections)
 
-    # 合并标题相同的相邻小节（跨块被切断的情况）
     merged = _merge_sections(all_sections)
     return merged
 
 
 def _split_text(text: str, chunk_size: int = 4000) -> list:
-    """按行分割文本，每块不超过 chunk_size 字符，尽量在段落边界切断"""
     lines  = text.split('\n')
     chunks = []
     current = []
     current_len = 0
 
     for line in lines:
-        line_len = len(line) + 1  # +1 for '\n'
+        line_len = len(line) + 1
         if current_len + line_len > chunk_size and current:
             chunks.append('\n'.join(current))
             current = [line]
@@ -116,10 +142,6 @@ def _split_text(text: str, chunk_size: int = 4000) -> list:
 
 
 def _analyze_chunk(chunk: str, api_key: str) -> list:
-    """
-    分析一个文本块，返回其中包含的小节列表。
-    每节包含 title、blocks、keywords。
-    """
     prompt = f"""你是一个专业的学习资料分析助手。请分析以下学习资料片段，完成三项任务：
 
 1. 识别章节标题（如"第一节"、"Chapter 1"、"一、"等形式的标题）
@@ -148,14 +170,11 @@ def _analyze_chunk(chunk: str, api_key: str) -> list:
 待分析内容：
 {chunk}"""
 
-    raw = _chat([{'role': 'user', 'content': prompt}], api_key)
-    return _parse_json_response(raw)
+    return _parse_json_response(_chat([{'role': 'user', 'content': prompt}], api_key))
 
 
 def _parse_json_response(raw: str) -> list:
-    """解析 AI 返回的 JSON，容错处理"""
     raw = raw.strip()
-    # 去掉可能的 markdown 代码块包裹
     if raw.startswith('```'):
         lines = raw.split('\n')
         raw = '\n'.join(lines[1:-1] if lines[-1].strip() == '```' else lines[1:])
@@ -167,7 +186,6 @@ def _parse_json_response(raw: str) -> list:
             return result
         return []
     except json.JSONDecodeError:
-        # 尝试找到第一个 [ 到最后一个 ] 之间的内容
         start = raw.find('[')
         end   = raw.rfind(']')
         if start != -1 and end != -1:
@@ -179,14 +197,12 @@ def _parse_json_response(raw: str) -> list:
 
 
 def _merge_sections(sections: list) -> list:
-    """合并标题相同的相邻小节（跨块切断的情况）"""
     if not sections:
         return []
     merged = [sections[0]]
     for sec in sections[1:]:
         if sec['title'] == merged[-1]['title']:
             merged[-1]['blocks'].extend(sec['blocks'])
-            # 关键词去重合并
             existing = set(merged[-1]['keywords'])
             for kw in sec['keywords']:
                 if kw not in existing:
@@ -202,14 +218,8 @@ def _merge_sections(sections: list) -> list:
 # ──────────────────────────────────────────────
 
 def judge_answer(question_word: str, user_answer: str, api_key: str = None) -> bool:
-    """
-    智能判题：判断用户答案与标准答案语义是否一致。
-    返回 True（正确）或 False（错误）
-    """
     if api_key is None:
         api_key = get_api_key()
-    if not api_key:
-        raise ValueError('尚未设置 API Key')
 
     if not user_answer.strip():
         return False
@@ -227,12 +237,32 @@ def judge_answer(question_word: str, user_answer: str, api_key: str = None) -> b
 # 连接测试
 # ──────────────────────────────────────────────
 
-def test_connection(api_key: str) -> str:
+def test_connection(api_key: str = None) -> str:
     """测试 API 连接，返回成功信息或抛出异常"""
-    result = _analyze_chunk('第一节 测试\n法律是社会规范的一种。\n什么是法律？\n法律是由国家制定的行为规范。', api_key)
-    if result:
-        return f'连接成功'
-    return '连接成功（返回为空，请检查文档格式）'
+    config = load_config()
+    provider = config.get('api_provider', 'deepseek')
+
+    if provider == 'ollama':
+        # Ollama: 直接 GET 基础 URL，不走 AI 分析，秒出结果
+        base_url = config.get('ollama_base_url', 'http://localhost:11434')
+        try:
+            resp = requests.get(base_url.rstrip('/') + '/', timeout=5)
+            if resp.status_code == 200:
+                return '连接成功，Ollama 服务正常运行'
+            raise ConnectionError(f'Ollama 返回异常状态码 {resp.status_code}')
+        except requests.exceptions.ConnectionError:
+            raise ConnectionError('无法连接到 Ollama，请确认已启动 Ollama')
+        except requests.exceptions.Timeout:
+            raise ConnectionError('连接 Ollama 超时，请检查地址是否正确')
+    else:
+        # DeepSeek: 用短文本测试 AI 是否正常返回
+        result = _analyze_chunk(
+            '第一节 测试\n什么是法律？\n法律是由国家制定的行为规范。',
+            api_key or ''
+        )
+        if result:
+            return '连接成功'
+        raise ValueError('连接成功但模型未返回有效内容，请检查 API Key')
 
 
 # ──────────────────────────────────────────────
@@ -240,41 +270,15 @@ def test_connection(api_key: str) -> str:
 # ──────────────────────────────────────────────
 
 def generate_quiz(sections: list, api_key: str = None) -> dict:
-    """
-    根据多个小节内容自动出题。
-    sections: [{'title': str, 'content': str}, ...]
-    返回：
-    {
-        'questions': [
-            {
-                'id': 1,
-                'type': 'choice',          # 选择题
-                'question': str,
-                'options': ['A. ...', 'B. ...', 'C. ...', 'D. ...'],
-                'answer': 'A'              # 正确选项字母
-            },
-            {
-                'id': 2,
-                'type': 'essay',           # 论述题
-                'question': str,
-                'answer': str              # 参考答案（含要点）
-            }
-        ]
-    }
-    """
     if api_key is None:
         api_key = get_api_key()
-    if not api_key:
-        raise ValueError('尚未设置 API Key')
 
-    # 拼接所有小节内容，限制总长度避免超 token
     combined = ''
     for sec in sections:
         combined += f"\n\n【{sec['title']}】\n{sec['content']}"
     if len(combined) > 8000:
         combined = combined[:8000] + '\n\n（内容过长，已截取前段）'
 
-    # 根据字数动态决定题目数量
     char_count = len(combined)
     n_choice = 3 if char_count < 2000 else 5
     n_essay  = 2 if char_count < 2000 else 3
@@ -337,30 +341,8 @@ def generate_quiz(sections: list, api_key: str = None) -> dict:
 # ──────────────────────────────────────────────
 
 def grade_quiz(questions: list, user_answers: dict, api_key: str = None) -> list:
-    """
-    批改综合测验。
-    questions   : generate_quiz 返回的题目列表
-    user_answers: {question_id: answer_str}
-    返回：
-    [
-        {
-            'id': 1,
-            'type': 'choice',
-            'question': str,
-            'user_answer': str,
-            'correct_answer': str,
-            'correct': True/False,
-            'score': 10,          # 本题得分
-            'full_score': 10,     # 本题满分
-            'comment': str        # AI 点评
-        },
-        ...
-    ]
-    """
     if api_key is None:
         api_key = get_api_key()
-    if not api_key:
-        raise ValueError('尚未设置 API Key')
 
     results = []
 
@@ -371,7 +353,6 @@ def grade_quiz(questions: list, user_answers: dict, api_key: str = None) -> list
         correct_ans = q.get('answer', '')
 
         if qtype == 'choice':
-            # 选择题直接比对
             correct = user_ans.upper() == correct_ans.upper()
             results.append({
                 'id':             qid,
@@ -386,7 +367,6 @@ def grade_quiz(questions: list, user_answers: dict, api_key: str = None) -> list
                 'comment':        '回答正确！' if correct else f'正确答案是 {correct_ans}。'
             })
         else:
-            # 论述题：调用 AI 批改
             if not user_ans:
                 results.append({
                     'id':             qid,

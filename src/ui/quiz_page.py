@@ -9,8 +9,8 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 from src.core.db import get_sections_by_material, get_section
-from src.core.db import add_wrong_question, wrong_question_exists, delete_wrong_question
-from src.core.config import get_api_key
+from src.core.db import add_wrong_question, wrong_question_exists
+from src.core.config import get_api_key, load_config
 
 COLOR_BG      = '#FFFFFF'
 COLOR_TEXT    = '#111111'
@@ -32,6 +32,14 @@ FONT_SMALL    = ('Microsoft YaHei', 11)
 FONT_SCORE    = ('Microsoft YaHei', 32, 'bold')
 
 
+def _api_ready() -> bool:
+    """判断当前配置下 AI 是否可用（DeepSeek 需要 key，Ollama 不需要）"""
+    config = load_config()
+    if config.get('api_provider') == 'ollama':
+        return True
+    return bool(get_api_key())
+
+
 class QuizPage(tk.Frame):
     """综合测验：选节 → 出题加载 → 答题 → 批改加载 → 结果"""
 
@@ -40,7 +48,7 @@ class QuizPage(tk.Frame):
         self.material_id  = material_id
         self.on_back      = on_back
         self._questions   = []      # 当前题目列表
-        self._answers     = {}      # {question_id: StringVar 或 str}
+        self._answers     = {}      # {question_id: str}
         self._choice_vars = {}      # {question_id: StringVar} 选择题
         self._essay_texts = {}      # {question_id: Text widget} 论述题
         self._results     = []      # 批改结果
@@ -82,7 +90,7 @@ class QuizPage(tk.Frame):
                  ).pack(anchor='w', padx=32, pady=(4, 0))
         tk.Frame(self, bg=COLOR_BORDER, height=1).pack(fill='x', padx=32, pady=(12, 0))
 
-        # 全选按钮
+        # ── 全选按钮 ──
         ctrl = tk.Frame(self, bg=COLOR_BG)
         ctrl.pack(anchor='w', padx=32, pady=(8, 0))
         tk.Button(ctrl, text='全选',
@@ -140,9 +148,13 @@ class QuizPage(tk.Frame):
         if not selected:
             messagebox.showwarning('未选择', '请至少选择一个小节')
             return
-        if not get_api_key():
-            messagebox.showwarning('未设置 API Key', '综合测验需要调用 AI，请先在设置中填写 API Key')
+
+        # FIX: Ollama 用户不需要 API Key，只有 DeepSeek 用户才检查
+        if not _api_ready():
+            messagebox.showwarning('未设置 API Key',
+                                   '综合测验需要调用 AI，请先在设置中填写 DeepSeek API Key')
             return
+
         self._selected_ids = selected
         self._show_generating()
 
@@ -162,12 +174,10 @@ class QuizPage(tk.Frame):
         def do():
             try:
                 from src.core.ai_client import generate_quiz
-                # 拼接选中小节内容
                 sections_data = []
                 for sid in self._selected_ids:
                     sec = get_section(sid)
                     if sec:
-                        # 用 blocks 里的文本拼成纯文字
                         content = '\n'.join(
                             b['content'] for b in sec.get('blocks', [])
                             if b.get('content', '').strip()
@@ -225,7 +235,7 @@ class QuizPage(tk.Frame):
                  bg=COLOR_BG, fg=COLOR_TEXT).pack(side='left')
         n_choice = sum(1 for q in self._questions if q['type'] == 'choice')
         n_essay  = sum(1 for q in self._questions if q['type'] == 'essay')
-        tk.Label(top, text=f'选择题 {n_choice} 道  ·  论述题 {n_essay} 道',
+        tk.Label(top, text=f'选择题 {n_choice} 道（各10分）  ·  论述题 {n_essay} 道（各25分）',
                  font=FONT_SMALL, bg=COLOR_BG, fg=COLOR_SUBTLE).pack(side='left', padx=16)
         tk.Frame(self, bg=COLOR_BORDER, height=1).pack(fill='x', padx=32, pady=(12, 0))
 
@@ -262,7 +272,7 @@ class QuizPage(tk.Frame):
         # 题号 + 题型标签
         header = tk.Frame(inner, bg=COLOR_Q_BG)
         header.pack(fill='x', anchor='w')
-        type_text = '选择题' if qtype == 'choice' else '论述题'
+        type_text  = '选择题' if qtype == 'choice' else '论述题'
         type_color = COLOR_SUBTLE if qtype == 'choice' else COLOR_WARN
         tk.Label(header, text=f'第 {qid} 题',
                  font=FONT_BODY_B, bg=COLOR_Q_BG, fg=COLOR_TEXT).pack(side='left')
@@ -283,7 +293,7 @@ class QuizPage(tk.Frame):
             self._choice_vars[qid] = var
             for opt in q.get('options', []):
                 tk.Radiobutton(inner, text=opt, variable=var,
-                               value=opt[0],   # 取 'A'/'B'/'C'/'D'
+                               value=opt[0],
                                font=FONT_BODY, bg=COLOR_Q_BG, fg=COLOR_TEXT,
                                activebackground=COLOR_Q_BG,
                                selectcolor=COLOR_Q_BG,
@@ -351,10 +361,18 @@ class QuizPage(tk.Frame):
         self._results = results
         self._clear()
 
-        total_score = sum(r['score'] for r in results)
-        full_score  = sum(r['full_score'] for r in results)
-        pct         = round(total_score / full_score * 100) if full_score else 0
-        score_color = COLOR_OK if pct >= 60 else COLOR_ERR
+        total_score  = sum(r['score'] for r in results)
+        full_score   = sum(r['full_score'] for r in results)
+        pct          = round(total_score / full_score * 100) if full_score else 0
+        score_color  = COLOR_OK if pct >= 60 else COLOR_ERR
+
+        # 分项统计
+        choice_results = [r for r in results if r['type'] == 'choice']
+        essay_results  = [r for r in results if r['type'] == 'essay']
+        choice_score   = sum(r['score'] for r in choice_results)
+        choice_full    = sum(r['full_score'] for r in choice_results)
+        essay_score    = sum(r['score'] for r in essay_results)
+        essay_full     = sum(r['full_score'] for r in essay_results)
 
         # ── 底部（先 pack）──
         bottom = tk.Frame(self, bg=COLOR_BG,
@@ -387,6 +405,18 @@ class QuizPage(tk.Frame):
         tk.Label(score_row, text=f' / {full_score} 分  （{pct}%）',
                  font=FONT_BODY, bg=COLOR_BG, fg=score_color
                  ).pack(side='left', anchor='s', pady=(0, 6))
+
+        # 分项得分行
+        detail_row = tk.Frame(score_area, bg=COLOR_BG)
+        detail_row.pack(anchor='w', pady=(6, 0))
+        if choice_results:
+            tk.Label(detail_row,
+                     text=f'选择题 {choice_score}/{choice_full}',
+                     font=FONT_SMALL, bg=COLOR_BG, fg=COLOR_SUBTLE).pack(side='left')
+        if essay_results:
+            tk.Label(detail_row,
+                     text=f'  ·  论述题 {essay_score}/{essay_full}',
+                     font=FONT_SMALL, bg=COLOR_BG, fg=COLOR_SUBTLE).pack(side='left')
 
         tk.Frame(self, bg=COLOR_BORDER, height=1).pack(fill='x', padx=32, pady=(16, 0))
         tk.Label(self, text='详细点评',
@@ -426,7 +456,7 @@ class QuizPage(tk.Frame):
         # 题号 + 得分
         header = tk.Frame(inner, bg=row_bg)
         header.pack(fill='x')
-        mark = '✓' if correct else '✗'
+        mark       = '✓' if correct else '✗'
         mark_color = COLOR_OK if correct else COLOR_ERR
         tk.Label(header, text=f'{mark}  第 {r["id"]} 题',
                  font=FONT_BODY_B, bg=row_bg, fg=mark_color).pack(side='left')
@@ -439,57 +469,61 @@ class QuizPage(tk.Frame):
                  wraplength=700, justify='left', anchor='w'
                  ).pack(fill='x', pady=(8, 0))
 
-        # 选择题选项显示
         if r['type'] == 'choice':
             user_ans    = r['user_answer'] or ''
             correct_ans = r['correct_answer']
             for opt in r.get('options', []):
-                letter = opt[0]   # 'A'/'B'/'C'/'D'
+                letter         = opt[0]
                 is_correct_opt = (letter == correct_ans)
                 is_user_opt    = (letter == user_ans)
 
                 if is_correct_opt:
-                    opt_bg = COLOR_OK_BG
-                    opt_fg = COLOR_OK
-                    suffix = '  ← 正确答案'
+                    opt_bg  = COLOR_OK_BG
+                    opt_fg  = COLOR_OK
+                    suffix  = '  ← 正确答案'
+                    bd      = COLOR_OK
                 elif is_user_opt and not correct:
-                    opt_bg = COLOR_ERR_BG
-                    opt_fg = COLOR_ERR
-                    suffix = '  ← 你的答案'
+                    opt_bg  = COLOR_ERR_BG
+                    opt_fg  = COLOR_ERR
+                    suffix  = '  ← 你的答案'
+                    bd      = COLOR_ERR
                 else:
-                    opt_bg = row_bg
-                    opt_fg = COLOR_SUBTLE
-                    suffix = ''
+                    opt_bg  = row_bg
+                    opt_fg  = COLOR_SUBTLE
+                    suffix  = ''
+                    bd      = row_bg
 
                 opt_row = tk.Frame(inner, bg=opt_bg,
-                                   highlightbackground=COLOR_OK if is_correct_opt else (COLOR_ERR if (is_user_opt and not correct) else row_bg),
+                                   highlightbackground=bd,
                                    highlightthickness=1 if (is_correct_opt or (is_user_opt and not correct)) else 0)
                 opt_row.pack(fill='x', pady=(4, 0))
                 tk.Label(opt_row, text=f'  {opt}{suffix}',
                          font=FONT_SMALL, bg=opt_bg, fg=opt_fg,
                          anchor='w', pady=4).pack(fill='x', padx=8)
         else:
-            # 论述题：显示学生答案
+            # 论述题：显示学生答案（FIX：高度自适应，最少 3 行）
             if r['user_answer']:
                 tk.Label(inner, text='你的答案：',
                          font=FONT_SMALL, bg=row_bg, fg=COLOR_SUBTLE
                          ).pack(anchor='w', pady=(8, 2))
+                ans_lines = max(3, r['user_answer'].count('\n') + 2)
                 ans_box = tk.Text(inner, font=FONT_SMALL, bg=COLOR_BG, fg=COLOR_TEXT,
                                   relief='flat', wrap='word', padx=6, pady=4,
                                   highlightbackground=COLOR_BORDER, highlightthickness=1,
-                                  height=4)
+                                  height=min(ans_lines, 10))
                 ans_box.insert('1.0', r['user_answer'])
                 ans_box.config(state='disabled')
                 ans_box.pack(fill='x')
 
-            # 参考答案
+            # 参考答案（同样自适应高度）
             tk.Label(inner, text='参考答案：',
                      font=FONT_SMALL, bg=row_bg, fg=COLOR_SUBTLE
                      ).pack(anchor='w', pady=(8, 2))
+            ref_lines = max(3, r['correct_answer'].count('\n') + 2)
             ref_box = tk.Text(inner, font=FONT_SMALL, bg=COLOR_BG, fg=COLOR_TEXT,
                               relief='flat', wrap='word', padx=6, pady=4,
                               highlightbackground=COLOR_BORDER, highlightthickness=1,
-                              height=4)
+                              height=min(ref_lines, 10))
             ref_box.insert('1.0', r['correct_answer'])
             ref_box.config(state='disabled')
             ref_box.pack(fill='x')
@@ -502,7 +536,7 @@ class QuizPage(tk.Frame):
 
         # 论述题：加入错题本按钮
         if r['type'] == 'essay':
-            already = wrong_question_exists(r['question'])
+            already   = wrong_question_exists(r['question'])
             btn_frame = tk.Frame(inner, bg=row_bg)
             btn_frame.pack(anchor='e', pady=(10, 0))
             if already:
@@ -521,7 +555,6 @@ class QuizPage(tk.Frame):
         from datetime import datetime
         label = f'综合测验 · {datetime.now().strftime("%Y-%m-%d")}'
         add_wrong_question(question, ref_answer, label)
-        # 按钮变成「已加入」提示
         for w in btn_frame.winfo_children():
             w.destroy()
         tk.Label(btn_frame, text='✓ 已加入错题本',

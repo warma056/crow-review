@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from src.core.db import (get_material, insert_section, set_material_analyzed,
                           delete_sections_by_material, get_sections_by_material)
 from src.core.ai_client import analyze_material
-from src.core.config import get_api_key
+from src.core.config import get_api_key, load_config   # FIX: 增加 load_config
 
 COLOR_BG     = '#FFFFFF'
 COLOR_TEXT   = '#111111'
@@ -118,7 +118,9 @@ class AnalyzePage(tk.Frame):
 
     def _start_analyze(self):
         """在后台线程启动 AI 分析"""
-        if not get_api_key():
+        # FIX: Ollama 不需要 API Key，只有 DeepSeek 才检查
+        config = load_config()
+        if config.get('api_provider', 'deepseek') != 'ollama' and not get_api_key():
             messagebox.showwarning('未设置 API Key',
                                    '请先前往「设置」填写 DeepSeek API Key')
             if self.on_back:

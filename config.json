@@ -1,4 +1,7 @@
 {
   "api_key": "sk-91032236214d467999181625fd781788",
-  "judge_mode": "strict"
+  "judge_mode": "strict",
+  "api_provider": "ollama",
+  "ollama_base_url": "http://localhost:11434",
+  "ollama_model": "qwen2.5:7b"
 }
