@@ -1,4 +1,4 @@
-# 模块用途：设置页面，用于配置 API 后端和 Key
+# 模块用途：设置页面，用于配置 API 后端、Key、UI 字体大小
 
 import tkinter as tk
 from tkinter import messagebox
@@ -6,21 +6,10 @@ import os
 import sys
 import threading
 
+from src.ui.theme import *
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 from src.core.config import load_config, save_config, get_api_key
-
-COLOR_BG     = '#FFFFFF'
-COLOR_TEXT   = '#111111'
-COLOR_SUBTLE = '#666666'
-COLOR_BORDER = '#DDDDDD'
-COLOR_INPUT  = '#F5F5F5'
-COLOR_BTN_BG = '#111111'
-COLOR_BTN_FG = '#FFFFFF'
-COLOR_OK     = '#2D7A2D'
-COLOR_ERR    = '#B00020'
-FONT_TITLE   = ('Microsoft YaHei', 16, 'bold')
-FONT_BODY    = ('Microsoft YaHei', 13)
-FONT_SMALL   = ('Microsoft YaHei', 11)
 
 
 class SettingsPage(tk.Frame):
@@ -31,15 +20,37 @@ class SettingsPage(tk.Frame):
         self._build_ui()
 
     def _build_ui(self):
+        # ── 滚动容器 ──
+        outer = tk.Frame(self, bg=COLOR_BG)
+        outer.pack(fill='both', expand=True)
+
+        sb = tk.Scrollbar(outer, orient='vertical')
+        sb.pack(side='right', fill='y')
+        canvas = tk.Canvas(outer, bg=COLOR_BG, highlightthickness=0,
+                           yscrollcommand=sb.set)
+        canvas.pack(side='left', fill='both', expand=True)
+        sb.config(command=canvas.yview)
+        self._inner = tk.Frame(canvas, bg=COLOR_BG)
+        win = canvas.create_window((0, 0), window=self._inner, anchor='nw')
+        canvas.bind('<Configure>', lambda e: canvas.itemconfig(win, width=e.width))
+        self._inner.bind('<Configure>',
+                         lambda e: canvas.configure(scrollregion=canvas.bbox('all')))
+        canvas.bind_all('<MouseWheel>',
+                        lambda e: canvas.yview_scroll(int(-1 * e.delta / 120), 'units'))
+
+        parent = self._inner
+
         # ── 标题 ──
-        tk.Label(self, text='设置', font=FONT_TITLE,
+        tk.Label(parent, text='设置', font=FONT_TITLE,
                  bg=COLOR_BG, fg=COLOR_TEXT
                  ).pack(anchor='w', padx=32, pady=(24, 0))
 
-        tk.Frame(self, bg=COLOR_BORDER, height=1).pack(fill='x', padx=32, pady=(12, 0))
+        tk.Frame(parent, bg=COLOR_BORDER, height=1).pack(fill='x', padx=32, pady=(12, 0))
 
-        # ── AI 后端选择 ──
-        provider_section = tk.Frame(self, bg=COLOR_BG)
+        # ══════════════════════════════════════════
+        # AI 后端选择
+        # ══════════════════════════════════════════
+        provider_section = tk.Frame(parent, bg=COLOR_BG)
         provider_section.pack(fill='x', padx=32, pady=(24, 0))
 
         tk.Label(provider_section, text='AI 后端',
@@ -70,8 +81,8 @@ class SettingsPage(tk.Frame):
         )
         self.btn_ollama.pack(side='left', padx=(8, 0))
 
-        # ── DeepSeek 区块（不 pack，由 _refresh_provider_ui 控制）──
-        self.deepseek_frame = tk.Frame(self, bg=COLOR_BG)
+        # ── DeepSeek 区块 ──
+        self.deepseek_frame = tk.Frame(parent, bg=COLOR_BG)
 
         tk.Label(self.deepseek_frame, text='DeepSeek API Key',
                  font=FONT_BODY, bg=COLOR_BG, fg=COLOR_TEXT).pack(anchor='w')
@@ -115,8 +126,8 @@ class SettingsPage(tk.Frame):
                   command=self._on_test
                   ).pack(side='left', padx=(12, 0))
 
-        # ── Ollama 区块（不 pack，由 _refresh_provider_ui 控制）──
-        self.ollama_frame = tk.Frame(self, bg=COLOR_BG)
+        # ── Ollama 区块 ──
+        self.ollama_frame = tk.Frame(parent, bg=COLOR_BG)
 
         tk.Label(self.ollama_frame, text='Ollama 地址',
                  font=FONT_BODY, bg=COLOR_BG, fg=COLOR_TEXT).pack(anchor='w')
@@ -164,16 +175,76 @@ class SettingsPage(tk.Frame):
                   command=self._on_test
                   ).pack(side='left', padx=(12, 0))
 
-        # ── 状态标签（两区块共用，由 _refresh_provider_ui 控制顺序）──
-        self.status_label = tk.Label(self, text='', font=FONT_SMALL, bg=COLOR_BG)
+        # ── 状态标签 ──
+        self.status_label = tk.Label(parent, text='', font=FONT_SMALL, bg=COLOR_BG)
 
-        # ── 费用说明（由 _refresh_provider_ui 控制顺序）──
-        self.info_sep   = tk.Frame(self, bg=COLOR_BORDER, height=1)
-        self.info_frame = tk.Frame(self, bg=COLOR_BG)
+        # ══════════════════════════════════════════
+        # 界面设置（字体大小）
+        # ══════════════════════════════════════════
+        self.ui_sep = tk.Frame(parent, bg=COLOR_BORDER, height=1)
+
+        self.ui_frame = tk.Frame(parent, bg=COLOR_BG)
+
+        tk.Label(self.ui_frame, text='界面设置',
+                 font=FONT_BODY_B, bg=COLOR_BG, fg=COLOR_TEXT).pack(anchor='w')
+        tk.Label(self.ui_frame,
+                 text='修改字体大小后需要重启程序才能生效',
+                 font=FONT_SMALL, bg=COLOR_BG, fg=COLOR_SUBTLE).pack(anchor='w', pady=(4, 12))
+
+        ui_config = config.get('ui', {})
+
+        # 正文字号
+        row1 = tk.Frame(self.ui_frame, bg=COLOR_BG)
+        row1.pack(fill='x', pady=(0, 8))
+        tk.Label(row1, text='正文字号：', font=FONT_BODY,
+                 bg=COLOR_BG, fg=COLOR_TEXT).pack(side='left')
+        self._base_size_var = tk.IntVar(value=ui_config.get('font_size_base', 13))
+        sp1 = tk.Spinbox(row1, from_=10, to=22, width=4,
+                         textvariable=self._base_size_var,
+                         font=FONT_BODY, bg=COLOR_INPUT, fg=COLOR_TEXT,
+                         relief='flat', highlightbackground=COLOR_BORDER,
+                         highlightthickness=1)
+        sp1.pack(side='left', padx=(0, 8))
+        tk.Label(row1, text='推荐 12-15，默认 13',
+                 font=FONT_SMALL, bg=COLOR_BG, fg=COLOR_SUBTLE).pack(side='left')
+
+        # 标题字号
+        row2 = tk.Frame(self.ui_frame, bg=COLOR_BG)
+        row2.pack(fill='x', pady=(0, 8))
+        tk.Label(row2, text='标题字号：', font=FONT_BODY,
+                 bg=COLOR_BG, fg=COLOR_TEXT).pack(side='left')
+        self._title_size_var = tk.IntVar(value=ui_config.get('font_size_title', 16))
+        sp2 = tk.Spinbox(row2, from_=14, to=28, width=4,
+                         textvariable=self._title_size_var,
+                         font=FONT_BODY, bg=COLOR_INPUT, fg=COLOR_TEXT,
+                         relief='flat', highlightbackground=COLOR_BORDER,
+                         highlightthickness=1)
+        sp2.pack(side='left', padx=(0, 8))
+        tk.Label(row2, text='推荐 15-20，默认 16',
+                 font=FONT_SMALL, bg=COLOR_BG, fg=COLOR_SUBTLE).pack(side='left')
+
+        ui_btn_row = tk.Frame(self.ui_frame, bg=COLOR_BG)
+        ui_btn_row.pack(anchor='w', pady=(4, 0))
+
+        tk.Button(ui_btn_row, text='保存字体设置',
+                  font=FONT_BODY, bg=COLOR_BTN_BG, fg=COLOR_BTN_FG,
+                  relief='flat', cursor='hand2', padx=20, pady=8,
+                  activebackground='#333333',
+                  command=self._on_save_ui
+                  ).pack(side='left')
+
+        self.ui_status = tk.Label(self.ui_frame, text='',
+                                  font=FONT_SMALL, bg=COLOR_BG)
+        self.ui_status.pack(anchor='w', pady=(8, 0))
+
+        # ══════════════════════════════════════════
+        # 费用说明
+        # ══════════════════════════════════════════
+        self.info_sep   = tk.Frame(parent, bg=COLOR_BORDER, height=1)
+        self.info_frame = tk.Frame(parent, bg=COLOR_BG)
 
         tk.Label(self.info_frame, text='关于费用',
-                 font=('Microsoft YaHei', 13, 'bold'),
-                 bg=COLOR_BG, fg=COLOR_TEXT).pack(anchor='w')
+                 font=FONT_BODY_B, bg=COLOR_BG, fg=COLOR_TEXT).pack(anchor='w')
 
         tips = [
             '• 个人学习使用量极小，10 元余额可使用数月',
@@ -186,6 +257,9 @@ class SettingsPage(tk.Frame):
             tk.Label(self.info_frame, text=tip, font=FONT_SMALL,
                      bg=COLOR_BG, fg=COLOR_SUBTLE,
                      justify='left').pack(anchor='w', pady=2)
+
+        # 底部留白
+        self._bottom_pad = tk.Frame(parent, bg=COLOR_BG, height=32)
 
         # 初始化显示
         self._refresh_provider_ui()
@@ -215,11 +289,10 @@ class SettingsPage(tk.Frame):
                                      highlightthickness=1)
 
         # 全部隐藏
-        self.deepseek_frame.pack_forget()
-        self.ollama_frame.pack_forget()
-        self.status_label.pack_forget()
-        self.info_sep.pack_forget()
-        self.info_frame.pack_forget()
+        for w in [self.deepseek_frame, self.ollama_frame,
+                  self.status_label, self.ui_sep, self.ui_frame,
+                  self.info_sep, self.info_frame, self._bottom_pad]:
+            w.pack_forget()
 
         # 按顺序重新 pack
         if provider == 'deepseek':
@@ -228,8 +301,11 @@ class SettingsPage(tk.Frame):
             self.ollama_frame.pack(fill='x', padx=32, pady=(20, 0))
 
         self.status_label.pack(anchor='w', padx=32, pady=(10, 0))
+        self.ui_sep.pack(fill='x', padx=32, pady=(28, 0))
+        self.ui_frame.pack(fill='x', padx=32, pady=(16, 0))
         self.info_sep.pack(fill='x', padx=32, pady=(28, 0))
         self.info_frame.pack(fill='x', padx=32, pady=(16, 0))
+        self._bottom_pad.pack(fill='x')
 
         self.status_label.config(text='')
 
@@ -264,6 +340,19 @@ class SettingsPage(tk.Frame):
             self.status_label.config(text='✓ 已保存', fg=COLOR_OK)
         else:
             messagebox.showerror('保存失败', '写入配置文件失败，请检查文件权限')
+
+    def _on_save_ui(self):
+        base_size  = self._base_size_var.get()
+        title_size = self._title_size_var.get()
+        config = load_config()
+        if 'ui' not in config:
+            config['ui'] = {}
+        config['ui']['font_size_base']  = base_size
+        config['ui']['font_size_title'] = title_size
+        if save_config(config):
+            self.ui_status.config(text='✓ 已保存，重启程序后生效', fg=COLOR_OK)
+        else:
+            messagebox.showerror('保存失败', '写入配置文件失败')
 
     # ──────────────────────────────────────────
     # 测试连接

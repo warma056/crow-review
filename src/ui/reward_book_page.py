@@ -5,25 +5,16 @@ from tkinter import filedialog, messagebox
 import os
 import sys
 
+from src.ui.theme import *
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 from src.core.db import (get_all_reward_books, insert_reward_book, delete_reward_book,
                          get_reward_book, get_chunk, is_chunk_unlocked, get_unlocked_count)
 
-COLOR_BG      = '#FFFFFF'
-COLOR_TEXT    = '#111111'
-COLOR_SUBTLE  = '#666666'
-COLOR_BORDER  = '#DDDDDD'
-COLOR_BTN_BG  = '#111111'
-COLOR_BTN_FG  = '#FFFFFF'
-COLOR_OK      = '#2D7A2D'
 COLOR_LOCK_BG = '#F5F5F5'
 COLOR_LOCK_FG = '#AAAAAA'
 COLOR_READ_BG = '#FAFFF8'
 COLOR_READ_BD = '#B8DEB8'
-FONT_TITLE    = ('Microsoft YaHei', 16, 'bold')
-FONT_BODY     = ('Microsoft YaHei', 13)
-FONT_BODY_B   = ('Microsoft YaHei', 13, 'bold')
-FONT_SMALL    = ('Microsoft YaHei', 11)
 FONT_READ     = ('Microsoft YaHei', 14)   # 阅读正文大一点
 
 CHUNK_SIZE = 500   # 每段字数

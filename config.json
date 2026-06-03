@@ -3,5 +3,9 @@
   "judge_mode": "strict",
   "api_provider": "ollama",
   "ollama_base_url": "http://localhost:11434",
-  "ollama_model": "qwen2.5:7b"
+  "ollama_model": "qwen2.5:7b",
+  "ui": {
+    "font_size_base": 13,
+    "font_size_title": 16
+  }
 }

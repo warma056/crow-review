@@ -6,26 +6,17 @@ from tkinter import ttk, messagebox
 import os
 import sys
 
+from src.ui.theme import *
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 from src.core.db import get_section, update_section_blocks_keywords
 
-COLOR_BG      = '#FFFFFF'
-COLOR_TEXT    = '#111111'
-COLOR_SUBTLE  = '#666666'
-COLOR_BORDER  = '#DDDDDD'
-COLOR_BTN_BG  = '#111111'
-COLOR_BTN_FG  = '#FFFFFF'
-COLOR_Q_BG    = '#EEF4FF'
 COLOR_A_BG    = '#F0FAF0'
 COLOR_T_BG    = '#F5F5F5'
 COLOR_Q_LABEL = '#1a56db'
 COLOR_A_LABEL = '#2D7A2D'
 COLOR_T_LABEL = '#666666'
 COLOR_SEL     = '#FFE066'   # 选中词高亮色
-FONT_TITLE    = ('Microsoft YaHei', 16, 'bold')
-FONT_BODY     = ('Microsoft YaHei', 13)
-FONT_BODY_B   = ('Microsoft YaHei', 13, 'bold')
-FONT_SMALL    = ('Microsoft YaHei', 11)
 
 TYPE_LABELS = {'question': '问题', 'answer': '答案', 'text': '说明'}
 TYPE_COLORS = {

@@ -6,23 +6,14 @@ import threading
 import os
 import sys
 
+from src.ui.theme import *
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 from src.core.db import (get_material, insert_section, set_material_analyzed,
                           delete_sections_by_material, get_sections_by_material)
 from src.core.ai_client import analyze_material
 from src.core.config import get_api_key, load_config   # FIX: 增加 load_config
 
-COLOR_BG     = '#FFFFFF'
-COLOR_TEXT   = '#111111'
-COLOR_SUBTLE = '#666666'
-COLOR_BORDER = '#DDDDDD'
-COLOR_BTN_BG = '#111111'
-COLOR_BTN_FG = '#FFFFFF'
-COLOR_OK     = '#2D7A2D'
-COLOR_ERR    = '#B00020'
-FONT_TITLE   = ('Microsoft YaHei', 16, 'bold')
-FONT_BODY    = ('Microsoft YaHei', 13)
-FONT_SMALL   = ('Microsoft YaHei', 11)
 
 
 class AnalyzePage(tk.Frame):

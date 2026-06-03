@@ -5,22 +5,13 @@ from tkinter import ttk, filedialog, messagebox
 import os
 import sys
 
+from src.ui.theme import *
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 from src.core.file_parser import parse_file
 from src.core.db import insert_material
 
 # 颜色常量
-COLOR_BG     = '#FFFFFF'
-COLOR_TEXT   = '#111111'
-COLOR_SUBTLE = '#666666'
-COLOR_BORDER = '#DDDDDD'
-COLOR_INPUT  = '#F5F5F5'
-COLOR_BTN_BG = '#111111'
-COLOR_BTN_FG = '#FFFFFF'
-COLOR_ERR    = '#B00020'
-FONT_TITLE   = ('Microsoft YaHei', 16, 'bold')
-FONT_BODY    = ('Microsoft YaHei', 13)
-FONT_SMALL   = ('Microsoft YaHei', 11)
 
 
 class ImportPage(tk.Frame):

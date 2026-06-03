@@ -5,24 +5,11 @@ from tkinter import ttk
 import os
 import sys
 
+from src.ui.theme import *
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 from src.core.db import insert_session, get_section, get_all_reward_books, unlock_chunks, get_unlocked_count
 
-COLOR_BG    = '#FFFFFF'
-COLOR_TEXT  = '#111111'
-COLOR_SUBTLE= '#666666'
-COLOR_BORDER= '#DDDDDD'
-COLOR_BTN_BG= '#111111'
-COLOR_BTN_FG= '#FFFFFF'
-COLOR_OK    = '#2D7A2D'
-COLOR_ERR   = '#B00020'
-COLOR_OK_BG = '#F0FAF0'
-COLOR_ERR_BG= '#FFF0F0'
-FONT_TITLE  = ('Microsoft YaHei', 16, 'bold')
-FONT_SCORE  = ('Microsoft YaHei', 36, 'bold')
-FONT_BODY   = ('Microsoft YaHei', 13)
-FONT_BODY_B = ('Microsoft YaHei', 13, 'bold')
-FONT_SMALL  = ('Microsoft YaHei', 11)
 
 
 class ResultPage(tk.Frame):

@@ -7,29 +7,13 @@ import json
 import os
 import sys
 
+from src.ui.theme import *
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 from src.core.db import get_sections_by_material, get_section
 from src.core.db import add_wrong_question, wrong_question_exists
 from src.core.config import get_api_key, load_config
 
-COLOR_BG      = '#FFFFFF'
-COLOR_TEXT    = '#111111'
-COLOR_SUBTLE  = '#666666'
-COLOR_BORDER  = '#DDDDDD'
-COLOR_BTN_BG  = '#111111'
-COLOR_BTN_FG  = '#FFFFFF'
-COLOR_OK      = '#2D7A2D'
-COLOR_ERR     = '#B00020'
-COLOR_OK_BG   = '#F0FAF0'
-COLOR_ERR_BG  = '#FFF0F0'
-COLOR_Q_BG    = '#F5F5F5'
-COLOR_WARN    = '#996600'
-COLOR_WARN_BG = '#FFFDF0'
-FONT_TITLE    = ('Microsoft YaHei', 16, 'bold')
-FONT_BODY     = ('Microsoft YaHei', 13)
-FONT_BODY_B   = ('Microsoft YaHei', 13, 'bold')
-FONT_SMALL    = ('Microsoft YaHei', 11)
-FONT_SCORE    = ('Microsoft YaHei', 32, 'bold')
 
 
 def _api_ready() -> bool:

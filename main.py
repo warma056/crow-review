@@ -5,6 +5,8 @@ from tkinter import messagebox
 import sys
 import os
 
+from src.ui.theme import *
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, 'src'))
@@ -24,16 +26,8 @@ from src.ui.cover_page import CoverPage
 from src.ui.reward_book_page import RewardBookPage
 from src.ui.quiz_page import QuizPage
 from src.ui.wrong_book_page import WrongBookPage
+from src.ui.help_page import HelpPage
 
-COLOR_BG    = '#FFFFFF'
-COLOR_TEXT  = '#111111'
-COLOR_SUBTLE= '#666666'
-COLOR_BORDER= '#DDDDDD'
-COLOR_BTN_BG= '#111111'
-COLOR_BTN_FG= '#FFFFFF'
-FONT_TITLE  = ('Microsoft YaHei', 16, 'bold')
-FONT_BODY   = ('Microsoft YaHei', 13)
-FONT_SMALL  = ('Microsoft YaHei', 11)
 
 
 class MainApp(tk.Tk):
@@ -66,6 +60,7 @@ class MainApp(tk.Tk):
                  font=FONT_TITLE, bg=COLOR_BG,
                  fg=COLOR_TEXT).pack(side='left', padx=20, pady=12)
         for label, cmd in [('我的资料', self._on_nav_materials),
+                            ('帮  助',   self._on_nav_help),
                             ('练习记录', self._on_nav_history),
                             ('错题本',   self._on_nav_wrong),
                             ('我的书',   self._on_nav_reward),
@@ -230,6 +225,13 @@ class MainApp(tk.Tk):
                       on_back=self._on_nav_materials
                       ).pack(fill='both', expand=True)
 
+
+    # ── 帮助 ──
+    def _on_nav_help(self):
+        self._clear()
+        HelpPage(self.content,
+                 on_back=self._on_nav_materials
+                 ).pack(fill='both', expand=True)
     # ── 设置 ──
     def _on_nav_settings(self):
         self._clear()

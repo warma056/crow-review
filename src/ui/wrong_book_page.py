@@ -6,26 +6,12 @@ import threading
 import os
 import sys
 
+from src.ui.theme import *
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 from src.core.db import get_all_wrong_questions, delete_wrong_question
 from src.core.config import get_api_key, load_config
 
-COLOR_BG      = '#FFFFFF'
-COLOR_TEXT    = '#111111'
-COLOR_SUBTLE  = '#666666'
-COLOR_BORDER  = '#DDDDDD'
-COLOR_BTN_BG  = '#111111'
-COLOR_BTN_FG  = '#FFFFFF'
-COLOR_OK      = '#2D7A2D'
-COLOR_OK_BG   = '#F0FAF0'
-COLOR_ERR     = '#B00020'
-COLOR_ERR_BG  = '#FFF0F0'
-COLOR_WARN    = '#996600'
-COLOR_WARN_BG = '#FFFDF0'
-FONT_TITLE    = ('Microsoft YaHei', 16, 'bold')
-FONT_BODY     = ('Microsoft YaHei', 13)
-FONT_BODY_B   = ('Microsoft YaHei', 13, 'bold')
-FONT_SMALL    = ('Microsoft YaHei', 11)
 
 
 class WrongBookPage(tk.Frame):
@@ -67,6 +53,10 @@ class WrongBookPage(tk.Frame):
                  font=FONT_SMALL, bg=COLOR_BG, fg=COLOR_SUBTLE
                  ).pack(anchor='w', padx=32, pady=(4, 0))
         tk.Frame(self, bg=COLOR_BORDER, height=1).pack(fill='x', padx=32, pady=(12, 0))
+        tk.Label(self, text='💡 练习中答错的关键词会自动收集到这里，可针对薄弱项专项练习',
+                 font=FONT_SMALL, bg=COLOR_BG, fg=COLOR_SUBTLE
+                 ).pack(anchor='w', padx=32, pady=(4, 0))
+
 
         if not questions:
             tk.Label(self,

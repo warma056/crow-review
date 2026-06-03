@@ -7,22 +7,14 @@ import re
 import os
 import sys
 
+from src.ui.theme import *
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 from src.core.db import get_section
 from src.core.config import load_config
 from src.core.formula_renderer import split_formula_segments, has_formula, render_formula
 
-COLOR_BG     = '#FFFFFF'
-COLOR_TEXT   = '#111111'
-COLOR_SUBTLE = '#666666'
-COLOR_BORDER = '#DDDDDD'
-COLOR_BTN_BG = '#111111'
-COLOR_BTN_FG = '#FFFFFF'
 COLOR_BLANK  = '#E8E8E8'
-COLOR_Q_BG   = '#F5F5F5'
-FONT_TITLE   = ('Microsoft YaHei', 16, 'bold')
-FONT_BODY    = ('Microsoft YaHei', 13)
-FONT_SMALL   = ('Microsoft YaHei', 11)
 
 
 class PracticePage(tk.Frame):
@@ -85,6 +77,10 @@ class PracticePage(tk.Frame):
                  font=FONT_SMALL, bg=COLOR_BG, fg=COLOR_SUBTLE
                  ).pack(side='left', padx=16)
         tk.Frame(self, bg=COLOR_BORDER, height=1).pack(fill='x', padx=32, pady=(12, 0))
+        tk.Label(self, text='💡 在灰色输入框中填写关键词，完成后点「提交答案」查看得分',
+                 font=FONT_SMALL, bg=COLOR_BG, fg=COLOR_SUBTLE
+                 ).pack(anchor='w', padx=32, pady=(4, 0))
+
 
         # ── 正文滚动区 ──
         outer = tk.Frame(self, bg=COLOR_BG)

@@ -5,23 +5,11 @@ from tkinter import messagebox
 import os
 import sys
 
+from src.ui.theme import *
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 from src.core.db import get_all_sessions, get_all_materials
 
-COLOR_BG     = '#FFFFFF'
-COLOR_TEXT   = '#111111'
-COLOR_SUBTLE = '#666666'
-COLOR_BORDER = '#DDDDDD'
-COLOR_BTN_BG = '#111111'
-COLOR_BTN_FG = '#FFFFFF'
-COLOR_OK     = '#2D7A2D'
-COLOR_ERR    = '#B00020'
-COLOR_OK_BG  = '#F0FAF0'
-COLOR_ERR_BG = '#FFF5F5'
-FONT_TITLE   = ('Microsoft YaHei', 16, 'bold')
-FONT_BODY    = ('Microsoft YaHei', 13)
-FONT_BODY_B  = ('Microsoft YaHei', 13, 'bold')
-FONT_SMALL   = ('Microsoft YaHei', 11)
 
 
 class HistoryPage(tk.Frame):
@@ -48,6 +36,10 @@ class HistoryPage(tk.Frame):
                   command=self.refresh).pack(side='right')
 
         tk.Frame(self, bg=COLOR_BORDER, height=1).pack(fill='x', padx=32, pady=(14, 0))
+        tk.Label(self, text='💡 点击资料名可筛选记录，到期复习任务会在「我的资料」页面提醒',
+                 font=FONT_SMALL, bg=COLOR_BG, fg=COLOR_SUBTLE
+                 ).pack(anchor='w', padx=32, pady=(4, 0))
+
 
         # ── 筛选栏 ──
         self._filter_frame = tk.Frame(self, bg=COLOR_BG)

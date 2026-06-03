@@ -7,23 +7,14 @@ import threading
 import os
 import sys
 
+from src.ui.theme import *
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 from src.core.db import get_material, update_keywords
 from src.core.ai_client import extract_keywords
 from src.core.config import get_api_key
 
-COLOR_BG     = '#FFFFFF'
-COLOR_TEXT   = '#111111'
-COLOR_SUBTLE = '#666666'
-COLOR_BORDER = '#DDDDDD'
-COLOR_INPUT  = '#F5F5F5'
-COLOR_BTN_BG = '#111111'
-COLOR_BTN_FG = '#FFFFFF'
-COLOR_ERR    = '#B00020'
 COLOR_TAG_BG = '#F0F0F0'
-FONT_TITLE   = ('Microsoft YaHei', 16, 'bold')
-FONT_BODY    = ('Microsoft YaHei', 13)
-FONT_SMALL   = ('Microsoft YaHei', 11)
 FONT_TAG     = ('Microsoft YaHei', 12)
 
 

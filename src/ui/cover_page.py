@@ -4,22 +4,14 @@ import tkinter as tk
 import os
 import sys
 
+from src.ui.theme import *
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 from src.core.db import get_section
 
-COLOR_BG      = '#FFFFFF'
-COLOR_TEXT    = '#111111'
-COLOR_SUBTLE  = '#666666'
-COLOR_BORDER  = '#DDDDDD'
-COLOR_BTN_BG  = '#111111'
-COLOR_BTN_FG  = '#FFFFFF'
-COLOR_Q_BG    = '#F5F5F5'
 COLOR_COVER   = '#E8E8E8'      # 折叠时遮盖块的背景色
 COLOR_ANS_BG  = '#F0FAF0'      # 展开后答案块背景（浅绿提示）
 COLOR_ANS_BD  = '#B8DEB8'      # 展开后答案块边框
-FONT_TITLE    = ('Microsoft YaHei', 16, 'bold')
-FONT_BODY     = ('Microsoft YaHei', 13)
-FONT_SMALL    = ('Microsoft YaHei', 11)
 FONT_COVER    = ('Microsoft YaHei', 12)
 
 
