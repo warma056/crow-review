@@ -46,6 +46,9 @@ class ReviewPage(tk.Frame):
         self._build_ui()
 
     def _build_ui(self):
+        # ── 滚轮系统：鼠标移到哪个滚动区就滚哪个，避免多区冲突 ──
+        self._setup_scroll_system()
+
         # ── 底部按钮（先 pack）──
         bottom = tk.Frame(self, bg=COLOR_BG,
                           highlightbackground=COLOR_BORDER,
@@ -110,9 +113,8 @@ class ReviewPage(tk.Frame):
         self._blocks_frame.bind('<Configure>',
                                 lambda e: self._canvas.configure(
                                     scrollregion=self._canvas.bbox('all')))
-        self._canvas.bind_all('<MouseWheel>',
-                              lambda e: self._canvas.yview_scroll(
-                                  int(-1 * e.delta / 120), 'units'))
+        # 注册到滚轮系统（替代原来的 bind_all 全局抢绑）
+        self._register_scroll(self._canvas)
 
         # 右侧关键词面板
         tk.Frame(main, bg=COLOR_BORDER, width=1).pack(side='left', fill='y', padx=10)
@@ -122,6 +124,29 @@ class ReviewPage(tk.Frame):
         self._build_keyword_panel(right)
 
         self._render_blocks()
+
+    # ──────────────────────────────────────────────
+    # 滚轮系统（多滚动区共存，互不冲突）
+    # ──────────────────────────────────────────────
+    def _setup_scroll_system(self):
+        """鼠标进入某个滚动区时记下它，滚轮事件只滚当前所在的区。"""
+        self._active_canvas = None
+        # 全局监听滚轮，按当前所在的滚动区分发
+        self.bind_all('<MouseWheel>', self._on_mousewheel)
+
+    def _register_scroll(self, canvas):
+        """把一个 Canvas 登记为可滚动区：鼠标移入时设为当前活动滚动区。"""
+        canvas.bind('<Enter>',
+                    lambda e, c=canvas: setattr(self, '_active_canvas', c))
+
+    def _on_mousewheel(self, event):
+        c = getattr(self, '_active_canvas', None)
+        if c is not None:
+            try:
+                c.yview_scroll(int(-1 * event.delta / 120), 'units')
+            except tk.TclError:
+                # 旧 canvas 已销毁等情况，忽略即可
+                pass
 
     # ──────────────────────────────────────────────
     # 段落渲染
@@ -250,21 +275,22 @@ class ReviewPage(tk.Frame):
     # 关键词面板
     # ──────────────────────────────────────────────
     def _build_keyword_panel(self, parent):
+        # 顶部标题
         tk.Label(parent, text='关键词',
                  font=FONT_BODY_B, bg=COLOR_BG, fg=COLOR_TEXT).pack(anchor='w')
         tk.Label(parent, text='仅「答案」段落挖空',
                  font=FONT_SMALL, bg=COLOR_BG, fg=COLOR_SUBTLE
                  ).pack(anchor='w', pady=(2, 8))
 
-        self._kw_frame = tk.Frame(parent, bg=COLOR_BG)
-        self._kw_frame.pack(fill='x')
-        self._render_keywords()
+        # ── 底部「手动输入添加」区（先 pack，避免被列表挤掉）──
+        bottom_add = tk.Frame(parent, bg=COLOR_BG)
+        bottom_add.pack(side='bottom', fill='x')
 
-        tk.Frame(parent, bg=COLOR_BORDER, height=1).pack(fill='x', pady=(12, 8))
-        tk.Label(parent, text='手动输入添加',
+        tk.Frame(bottom_add, bg=COLOR_BORDER, height=1).pack(fill='x', pady=(12, 8))
+        tk.Label(bottom_add, text='手动输入添加',
                  font=FONT_SMALL, bg=COLOR_BG, fg=COLOR_SUBTLE).pack(anchor='w')
 
-        add_row = tk.Frame(parent, bg=COLOR_BG)
+        add_row = tk.Frame(bottom_add, bg=COLOR_BG)
         add_row.pack(fill='x', pady=(4, 0))
 
         self._add_var = tk.StringVar()
@@ -279,6 +305,36 @@ class ReviewPage(tk.Frame):
                   font=FONT_SMALL, bg=COLOR_BTN_BG, fg=COLOR_BTN_FG,
                   relief='flat', cursor='hand2', padx=8, pady=5,
                   command=self._add_keyword).pack(side='left', padx=(4, 0))
+
+        # ── 中间关键词列表（可滚动）──
+        kw_wrapper = tk.Frame(parent, bg=COLOR_BG)
+        kw_wrapper.pack(fill='both', expand=True)
+
+        kw_sb = ttk.Scrollbar(kw_wrapper, orient='vertical')
+        kw_sb.pack(side='right', fill='y')
+
+        self._kw_canvas = tk.Canvas(kw_wrapper, bg=COLOR_BG,
+                                    highlightthickness=0,
+                                    yscrollcommand=kw_sb.set)
+        self._kw_canvas.pack(side='left', fill='both', expand=True)
+        kw_sb.config(command=self._kw_canvas.yview)
+
+        self._kw_frame = tk.Frame(self._kw_canvas, bg=COLOR_BG)
+        self._kw_win = self._kw_canvas.create_window(
+            (0, 0), window=self._kw_frame, anchor='nw')
+
+        # 内部 frame 撑满 canvas 宽度
+        self._kw_canvas.bind('<Configure>',
+                             lambda e: self._kw_canvas.itemconfig(
+                                 self._kw_win, width=e.width))
+        # 内容变化时刷新滚动范围
+        self._kw_frame.bind('<Configure>',
+                            lambda e: self._kw_canvas.configure(
+                                scrollregion=self._kw_canvas.bbox('all')))
+        # 注册到滚轮系统
+        self._register_scroll(self._kw_canvas)
+
+        self._render_keywords()
 
     def _render_keywords(self):
         for w in self._kw_frame.winfo_children():
