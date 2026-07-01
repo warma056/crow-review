@@ -13,3 +13,8 @@ build/
 app.db
 __pycache__/
 *.pyc
+
+dist/
+build/
+*.exe
+*.pkg
