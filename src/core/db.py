@@ -40,6 +40,7 @@ def init_db():
             name         TEXT    NOT NULL,
             content      TEXT    NOT NULL,
             analyzed     INTEGER DEFAULT 0,
+            folder       TEXT    DEFAULT '',
             created_at   TEXT    NOT NULL
         )
     ''')
@@ -128,6 +129,11 @@ def init_db():
         )
     ''')
 
+    # ── 自动升级：老数据库的 materials 表可能没有 folder 字段，检测并补上 ──
+    cols = [r['name'] for r in c.execute("PRAGMA table_info(materials)").fetchall()]
+    if 'folder' not in cols:
+        c.execute("ALTER TABLE materials ADD COLUMN folder TEXT DEFAULT ''")
+
     conn.commit()
     conn.close()
 
@@ -150,10 +156,32 @@ def insert_material(name: str, content: str) -> int:
 def get_all_materials() -> list:
     conn = get_conn()
     rows = conn.execute(
-        'SELECT id, name, analyzed, created_at FROM materials ORDER BY created_at DESC'
+        'SELECT id, name, analyzed, folder, created_at FROM materials ORDER BY created_at DESC'
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def set_material_folder(material_id: int, folder: str):
+    """把某条资料移动到指定文件夹；folder 传空字符串表示「未分类」"""
+    conn = get_conn()
+    conn.execute(
+        'UPDATE materials SET folder = ? WHERE id = ?',
+        (folder or '', material_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_all_folders() -> list:
+    """返回所有非空文件夹名（去重，按名称排序）"""
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT DISTINCT folder FROM materials "
+        "WHERE folder IS NOT NULL AND folder != '' ORDER BY folder"
+    ).fetchall()
+    conn.close()
+    return [r['folder'] for r in rows]
 
 
 def get_material(material_id: int) -> dict | None:
@@ -310,6 +338,31 @@ def get_all_sessions() -> list:
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def get_session_detail(session_id: int) -> dict | None:
+    """返回单次练习的完整信息，含解析后的每题明细 detail（列表）。
+    detail 每项形如 {'keyword': 正确答案, 'answer': 用户作答, 'correct': 是否正确}"""
+    conn = get_conn()
+    row = conn.execute(
+        '''SELECT s.id, s.score, s.total, s.correct, s.mode, s.detail, s.created_at,
+                  sec.title as section_title,
+                  m.name   as material_name
+           FROM sessions s
+           JOIN sections  sec ON s.section_id  = sec.id
+           JOIN materials m   ON s.material_id = m.id
+           WHERE s.id = ?''',
+        (session_id,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    d = dict(row)
+    try:
+        d['detail'] = json.loads(d['detail']) if d['detail'] else []
+    except (json.JSONDecodeError, TypeError):
+        d['detail'] = []
+    return d
 
 
 # ── 奖励小说操作 ──
